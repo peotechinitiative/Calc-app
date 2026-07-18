@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Calculator">
+<style>
+  :root{
+    /* Disguise-mode palette: genuine iOS-style calculator look */
+    --calc-bg:#000000;
+    --calc-display:#fff;
+    --key-fn:#a5a5a5;
+    --key-fn-text:#000;
+    --key-num:#333333;
+    --key-num-text:#fff;
+    --key-op:#ff9f0a;
+    --key-op-text:#fff;
+
+    /* Unlocked-mode palette: calm, trustworthy, distinct from disguise */
+    --navy:#132436;
+    --navy-deep:#0b1620;
+    --slate:#4d6272;
+    --mist:#e7edf1;
+    --card:#ffffff;
+    --amber:#c98a3b;
+    --amber-soft:#f3e2c9;
+    --danger:#a8412f;
+    --safe:#3f7358;
+    --line:#dbe3e8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:0; min-height:100vh;
+    background:var(--calc-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color:var(--ink);
+    display:flex; justify-content:center;
+  }
+  #app{ width:100%; max-width:430px; min-height:100vh; background:var(--calc-bg); position:relative; overflow:hidden; }
+
+  /* ---------- DISGUISE MODE: CALCULATOR ---------- */
+  #disguise{ position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; padding:0 12px 28px; }
+  .calc-display{
+    color:var(--calc-display); text-align:right; padding:0 10px 20px;
+    font-size:64px; font-weight:300; letter-spacing:0.5px;
+    overflow-x:auto; white-space:nowrap; min-height:80px; display:flex; align-items:flex-end; justify-content:flex-end;
+  }
+  .calc-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+  .calc-key{
+    aspect-ratio:1/1; border-radius:50%; border:none; font-size:26px; font-weight:400;
+    display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;
+  }
+  .calc-key.num{ background:var(--key-num); color:var(--key-num-text); }
+  .calc-key.fn{ background:var(--key-fn); color:var(--key-fn-text); }
+  .calc-key.op{ background:var(--key-op); color:var(--key-op-text); font-size:32px; }
+  .calc-key:active{ filter:brightness(1.3); }
+  .calc-key.zero{ grid-column: span 2; aspect-ratio:unset; justify-content:flex-start; padding-left:26px; border-radius:38px; }
+
+  /* ---------- APP SHELL ---------- */
+  .shell{ position:absolute; inset:0; background:var(--mist); display:none; flex-direction:column; }
+  .shell.active{ display:flex; }
+  .topbar{
+    background:var(--navy); color:#fff; padding:20px 20px 22px; border-radius:0 0 22px 22px;
+  }
+  .topbar .eyebrow{ font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#8fa4b3; margin-bottom:6px;}
+  .topbar h2{ margin:0; font-size:24px; font-family:'Georgia', serif; font-weight:600; }
+  .topbar .sub{ font-size:13px; color:#b7c5cd; margin-top:6px; }
+
+  .content{ flex:1; overflow-y:auto; padding:18px; padding-bottom:90px; }
+
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+  .tile{
+    background:var(--card); border-radius:16px; padding:16px; border:1px solid var(--line);
+    display:flex; flex-direction:column; gap:8px; cursor:pointer; min-height:96px;
+  }
+  .tile:active{ transform: scale(0.98); }
+  .tile .icon{ font-size:22px; }
+  .tile .label{ font-size:13.5px; font-weight:600; line-height:1.3; color:var(--navy); }
+
+  .panic-tile{ grid-column: 1 / -1; background:var(--danger); border:none; }
+  .panic-tile .label{ color:#fff; }
+  .panic-tile .icon{ color:#fff; }
+
+  .section-title{ font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--slate); margin:22px 0 10px; }
+
+  .bottom-nav{
+    position:absolute; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line);
+    display:flex; justify-content:space-around; padding:10px 0 14px;
+  }
+  .nav-item{ display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10.5px; color:var(--slate); }
+  .nav-item.active{ color:var(--navy); font-weight:700; }
+  .nav-icon{ font-size:19px; }
+
+  .back-row{ display:flex; align-items:center; gap:8px; color:#b7c5cd; font-size:13px; margin-bottom:4px; cursor:pointer; }
+
+  .card{ background:var(--card); border-radius:16px; padding:16px; border:1px solid var(--line); margin-bottom:14px; }
+  .card h3{ margin:0 0 8px; font-size:15px; color:var(--navy); }
+  .card p{ margin:0; font-size:13px; color:#5c6b74; line-height:1.5; }
+
+  input[type=text], input[type=tel]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    font-size:14px; background:#fff; margin-top:6px;
+  }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:13px 18px; border-radius:12px; border:none; font-size:14px; font-weight:700;
+    cursor:pointer; width:100%; margin-top:10px;
+  }
+  .btn-primary{ background:var(--navy); color:#fff; }
+  .btn-danger{ background:var(--danger); color:#fff; }
+  .btn-ghost{ background:#eef2f4; color:var(--navy); }
+
+  .tier{ display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+  .tier-none{ background:#e3f1e8; color:var(--safe); }
+  .tier-low{ background:var(--amber-soft); color:var(--amber); }
+  .tier-high{ background:#f5dcd6; color:var(--danger); }
+
+  .result-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line); }
+  .result-row:last-child{ border-bottom:none; }
+
+  .ring-wrap{ display:flex; flex-direction:column; align-items:center; gap:14px; padding:10px 0 4px; }
+  svg.ring{ transform:rotate(-90deg); }
+  .ring-time{ font-size:28px; font-weight:700; color:var(--navy); font-family:'Georgia', serif; }
+  .ring-label{ font-size:12px; color:var(--slate); }
+
+  .vault-item{ display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .vault-item:last-child{ border-bottom:none; }
+  .vault-icon{ width:36px; height:36px; border-radius:10px; background:var(--mist); display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .vault-meta{ flex:1; }
+  .vault-meta .name{ font-size:13.5px; font-weight:600; color:var(--navy); }
+  .vault-meta .date{ font-size:11px; color:var(--slate); }
+  .lock-badge{ font-size:10px; color:var(--safe); background:#e3f1e8; padding:2px 8px; border-radius:10px; }
+
+  .toast{
+    position:absolute; left:18px; right:18px; bottom:96px; background:var(--navy); color:#fff;
+    padding:12px 16px; border-radius:12px; font-size:13px; text-align:center; opacity:0; transform:translateY(10px);
+    transition:all .25s ease; pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== DISGUISE MODE: CALCULATOR ===================== -->
+  <div id="disguise">
+    <div class="calc-display" id="calcDisplay">0</div>
+    <div class="calc-grid">
+      <button class="calc-key fn" data-fn="clear">C</button>
+      <button class="calc-key fn" data-fn="sign">±</button>
+      <button class="calc-key fn" data-fn="percent">%</button>
+      <button class="calc-key op" data-op="÷">÷</button>
+
+      <button class="calc-key num" data-num="7">7</button>
+      <button class="calc-key num" data-num="8">8</button>
+      <button class="calc-key num" data-num="9">9</button>
+      <button class="calc-key op" data-op="×">×</button>
+
+      <button class="calc-key num" data-num="4">4</button>
+      <button class="calc-key num" data-num="5">5</button>
+      <button class="calc-key num" data-num="6">6</button>
+      <button class="calc-key op" data-op="−">−</button>
+
+      <button class="calc-key num" data-num="1">1</button>
+      <button class="calc-key num" data-num="2">2</button>
+      <button class="calc-key num" data-num="3">3</button>
+      <button class="calc-key op" data-op="+">+</button>
+
+      <button class="calc-key num zero" data-num="0">0</button>
+      <button class="calc-key num" data-num=".">.</button>
+      <button class="calc-key op" data-fn="equals">=</button>
+    </div>
+  </div>
+
+  <!-- ===================== APP SHELL ===================== -->
+  <div class="shell" id="shell">
+
+    <!-- HOME VIEW -->
+    <div id="view-home" class="view">
+      <div class="topbar">
+        <div class="eyebrow">Shield</div>
+        <h2>You're safe here</h2>
+        <div class="sub">Everything below stays local to this device unless you choose to share it.</div>
+      </div>
+      <div class="content">
+        <div class="section-title">Quick actions</div>
+        <div class="grid">
+          <div class="tile" data-view="checkin"><div class="icon">📍</div><div class="label">Start a meetup check-in</div></div>
+          <div class="tile" data-view="lookup"><div class="icon">🔍</div><div class="label">Check a profile / number</div></div>
+          <div class="tile" data-view="vault"><div class="icon">🔒</div><div class="label">Evidence vault</div></div>
+          <div class="tile" data-view="playbook"><div class="icon">📋</div><div class="label">Blackmail playbook</div></div>
+          <div class="tile panic-tile" data-view="panic"><div class="icon">🆘</div><div class="label">Panic — alert my trusted contacts now</div></div>
+        </div>
+        <div class="section-title">Recent</div>
+        <div class="card">
+          <h3>No recent activity</h3>
+          <p>Check-ins, lookups, and vault items you create will show up here — visible only after you unlock the app.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECK-IN VIEW -->
+    <div id="view-checkin" class="view hidden">
+      <div class="topbar"><div class="back-row" data-back="home">‹ Back</div><h2>Meetup check-in</h2><div class="sub">Share your location with a trusted contact for a set window — nothing persists after.</div></div>
+      <div class="content">
+        <div class="card" id="checkinSetup">
+          <h3>Set up this meetup</h3>
+          <p>Trusted contact</p>
+          <input type="text" placeholder="e.g. Tolu (best friend)" value="Tolu">
+          <p style="margin-top:12px;">Check-in window</p>
+          <input type="text" placeholder="e.g. 90 minutes" value="90 minutes" id="windowInput">
+          <button class="btn btn-primary" id="startCheckin">Start check-in</button>
+        </div>
+        <div class="card hidden" id="checkinActive">
+          <div class="ring-wrap">
+            <svg width="140" height="140" class="ring">
+              <circle cx="70" cy="70" r="60" stroke="#e3e9ec" stroke-width="10" fill="none"/>
+              <circle id="ringProgress" cx="70" cy="70" r="60" stroke="#c98a3b" stroke-width="10" fill="none"
+                stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="0"/>
+            </svg>
+            <div class="ring-time" id="ringTime">90:00</div>
+            <div class="ring-label">Tolu will be alerted with your last location if you don't check in</div>
+          </div>
+          <button class="btn btn-primary" id="checkInNow">I'm safe — check in now</button>
+          <button class="btn btn-ghost" id="cancelCheckin">Cancel check-in</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOOKUP VIEW -->
+    <div id="view-lookup" class="view hidden">
+      <div class="topbar"><div class="back-row" data-back="home">‹ Back</div><h2>Check before you meet</h2><div class="sub">Search a phone number or username against community reports.</div></div>
+      <div class="content">
+        <div class="card">
+          <input type="text" placeholder="Phone number or username" id="lookupInput">
+          <button class="btn btn-primary" id="lookupBtn">Check</button>
+        </div>
+        <div id="lookupResults"></div>
+      </div>
+    </div>
+
+    <!-- VAULT VIEW -->
+    <div id="view-vault" class="view hidden">
+      <div class="topbar"><div class="back-row" data-back="home">‹ Back</div><h2>Evidence vault</h2><div class="sub">Encrypted, separate from your photo gallery. Only visible here.</div></div>
+      <div class="content">
+        <div class="card">
+          <div class="vault-item">
+            <div class="vault-icon">🖼️</div>
+            <div class="vault-meta"><div class="name">Screenshot — chat thread</div><div class="date">Added Jul 14</div></div>
+            <span class="lock-badge">🔒 encrypted</span>
+          </div>
+          <div class="vault-item">
+            <div class="vault-icon">📝</div>
+            <div class="vault-meta"><div class="name">Note — meetup that went wrong</div><div class="date">Added Jul 9</div></div>
+            <span class="lock-badge">🔒 encrypted</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="addVaultItem">+ Add screenshot or note</button>
+      </div>
+    </div>
+
+    <!-- PLAYBOOK VIEW -->
+    <div id="view-playbook" class="view hidden">
+      <div class="topbar"><div class="back-row" data-back="home">‹ Back</div><h2>If someone threatens to expose you</h2><div class="sub">Read this before you respond to them.</div></div>
+      <div class="content">
+        <div class="card"><h3>1. Don't pay, and don't panic-reply</h3><p>Paying rarely ends it — it usually signals you'll pay again. Take time before responding to anything.</p></div>
+        <div class="card"><h3>2. Lock down your accounts</h3><p>Change passwords on email and social accounts, turn on two-factor authentication, and check for unfamiliar login sessions.</p></div>
+        <div class="card"><h3>3. Save everything</h3><p>Screenshot every message before blocking. Store it in your evidence vault — don't rely on the platform to keep a copy.</p></div>
+        <div class="card"><h3>4. Tell someone you trust</h3><p>Isolation is what makes this work for them. One trusted person knowing changes your options.</p></div>
+        <div class="card"><h3>5. Report through the right channel</h3><p>Use the platform's report flow for extortion/blackmail specifically — it's routed differently than general abuse reports.</p></div>
+      </div>
+    </div>
+
+    <!-- PANIC VIEW -->
+    <div id="view-panic" class="view hidden">
+      <div class="topbar"><div class="back-row" data-back="home">‹ Back</div><h2>Panic alert</h2><div class="sub">This sends your location to your trusted contacts immediately.</div></div>
+      <div class="content">
+        <div class="card" id="panicConfirm">
+          <h3>Send alert now?</h3>
+          <p>Tolu and Bimpe will get a message with your live location. Nothing else changes on your screen.</p>
+          <button class="btn btn-danger" id="sendPanic">Yes, alert them now</button>
+          <button class="btn btn-ghost" data-back="home">Cancel</button>
+        </div>
+        <div class="card hidden" id="panicSent">
+          <h3>✅ Alert sent</h3>
+          <p>Tolu and Bimpe have your location. This screen will return to normal in a moment.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active" data-view="home"><div class="nav-icon">🏠</div>Home</div>
+      <div class="nav-item" data-view="checkin"><div class="nav-icon">📍</div>Check-in</div>
+      <div class="nav-item" data-view="vault"><div class="nav-icon">🔒</div>Vault</div>
+      <div class="nav-item" data-view="playbook"><div class="nav-icon">📋</div>Guide</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ================= CALCULATOR DISGUISE + SECRET UNLOCK =================
+const SECRET_CODE = "2468"; // typed as plain digits, then "="
+const calcDisplay = document.getElementById('calcDisplay');
+let display = "0";
+let firstOperand = null;
+let operator = null;
+let waitingForSecond = false;
+let digitLog = "";
+
+function renderCalc(){ calcDisplay.textContent = display; }
+
+function inputDigit(d){
+  if(waitingForSecond){ display = d; waitingForSecond = false; }
+  else { display = (display === "0" && d !== ".") ? d : display + d; }
+  digitLog += d;
+  renderCalc();
+}
+
+function inputOperator(op){
+  if(operator && !waitingForSecond){ compute(); }
+  firstOperand = parseFloat(display);
+  operator = op;
+  waitingForSecond = true;
+  digitLog = ""; // secret sequence only counts as plain digit entry
+}
+
+function compute(){
+  if(operator === null) return;
+  const second = parseFloat(display);
+  let result = second;
+  if(operator === '+') result = firstOperand + second;
+  else if(operator === '−') result = firstOperand - second;
+  else if(operator === '×') result = firstOperand * second;
+  else if(operator === '÷') result = second === 0 ? 0 : firstOperand / second;
+  display = String(Math.round(result * 1e8) / 1e8);
+  operator = null;
+}
+
+function clearAll(){
+  display = "0"; firstOperand = null; operator = null; waitingForSecond = false; digitLog = "";
+  renderCalc();
+}
+
+function unlockApp(){
+  document.getElementById('disguise').style.display = 'none';
+  document.getElementById('shell').classList.add('active');
+}
+
+document.querySelectorAll('.calc-key[data-num]').forEach(btn=>{
+  btn.addEventListener('click', ()=> inputDigit(btn.dataset.num));
+});
+document.querySelectorAll('.calc-key[data-op]').forEach(btn=>{
+  btn.addEventListener('click', ()=> { inputOperator(btn.dataset.op); renderCalc(); });
+});
+document.querySelector('[data-fn="clear"]').addEventListener('click', clearAll);
+document.querySelector('[data-fn="sign"]').addEventListener('click', ()=>{
+  display = String(parseFloat(display) * -1); renderCalc();
+});
+document.querySelector('[data-fn="percent"]').addEventListener('click', ()=>{
+  display = String(parseFloat(display) / 100); renderCalc();
+});
+document.querySelector('[data-fn="equals"]').addEventListener('click', ()=>{
+  if(digitLog === SECRET_CODE){
+    unlockApp();
+    return;
+  }
+  compute();
+  digitLog = "";
+  renderCalc();
+});
+
+// ================= APP SHELL: view routing =================
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
+  document.getElementById('view-'+name).classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(n=> n.classList.toggle('active', n.dataset.view===name));
+}
+document.querySelectorAll('[data-view]').forEach(el=>{
+  el.addEventListener('click', ()=> showView(el.dataset.view));
+});
+document.querySelectorAll('[data-back]').forEach(el=>{
+  el.addEventListener('click', ()=> showView(el.dataset.back));
+});
+
+// ================= Toast =================
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+// ================= Check-in flow =================
+let checkinTimer = null;
+document.getElementById('startCheckin').addEventListener('click', ()=>{
+  document.getElementById('checkinSetup').classList.add('hidden');
+  document.getElementById('checkinActive').classList.remove('hidden');
+  let totalSeconds = 90*60;
+  let remaining = totalSeconds;
+  const circumference = 377;
+  const ringProgress = document.getElementById('ringProgress');
+  const ringTime = document.getElementById('ringTime');
+  checkinTimer = setInterval(()=>{
+    remaining -= 20; // demo speed
+    if(remaining<=0){ remaining=0; clearInterval(checkinTimer); toast("Window closed — Tolu has been alerted"); }
+    const mins = Math.floor(remaining/60).toString().padStart(2,'0');
+    const secs = Math.floor(remaining%60).toString().padStart(2,'0');
+    ringTime.textContent = `${mins}:${secs}`;
+    const frac = remaining/totalSeconds;
+    ringProgress.setAttribute('stroke-dashoffset', (circumference*(1-frac)));
+  }, 300);
+  toast("Check-in started — Tolu is watching your window");
+});
+document.getElementById('checkInNow').addEventListener('click', ()=>{
+  clearInterval(checkinTimer);
+  document.getElementById('checkinActive').classList.add('hidden');
+  document.getElementById('checkinSetup').classList.remove('hidden');
+  toast("Checked in — Tolu was notified you're safe");
+});
+document.getElementById('cancelCheckin').addEventListener('click', ()=>{
+  clearInterval(checkinTimer);
+  document.getElementById('checkinActive').classList.add('hidden');
+  document.getElementById('checkinSetup').classList.remove('hidden');
+  toast("Check-in cancelled");
+});
+
+// ================= Lookup flow (mock data) =================
+const mockReports = {
+  "08099998888": {tier:"high", count:5, note:"Multiple reports of being lured to a fake meetup address, then robbed by a group."},
+  "kingsley_lagos": {tier:"low", count:1, note:"One report of asking for money before ever meeting in person."},
+};
+document.getElementById('lookupBtn').addEventListener('click', ()=>{
+  const q = document.getElementById('lookupInput').value.trim().toLowerCase().replace(/\s/g,'');
+  const results = document.getElementById('lookupResults');
+  const match = mockReports[q];
+  if(!q){ results.innerHTML=''; return; }
+  if(match){
+    const tierClass = match.tier==='high'?'tier-high':'tier-low';
+    const tierLabel = match.tier==='high'?'Confirmed pattern':'1 report';
+    results.innerHTML = `<div class="card">
+      <div class="result-row"><strong>${q}</strong><span class="tier ${tierClass}">${tierLabel}</span></div>
+      <p>${match.note}</p>
+      <p style="margin-top:8px;color:#a6a297;">${match.count} independent report(s) on file.</p>
+    </div>`;
+  } else {
+    results.innerHTML = `<div class="card">
+      <div class="result-row"><strong>${q}</strong><span class="tier tier-none">No reports</span></div>
+      <p>Nothing on file — that doesn't guarantee safety. Still meet in a public, well-lit place and keep a check-in running.</p>
+    </div>`;
+  }
+});
+
+// ================= Vault =================
+document.getElementById('addVaultItem').addEventListener('click', ()=>{
+  toast("In the full app: pick a screenshot to encrypt and store here");
+});
+
+// ================= Panic =================
+document.getElementById('sendPanic').addEventListener('click', ()=>{
+  document.getElementById('panicConfirm').classList.add('hidden');
+  document.getElementById('panicSent').classList.remove('hidden');
+  setTimeout(()=>{
+    document.getElementById('panicSent').classList.add('hidden');
+    document.getElementById('panicConfirm').classList.remove('hidden');
+    showView('home');
+  }, 2600);
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
