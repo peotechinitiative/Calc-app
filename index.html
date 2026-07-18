@@ -618,10 +618,15 @@ async function renderVaultList(db){
   document.getElementById('vaultAddNoteBtn').addEventListener('click', async ()=>{
     const text = document.getElementById('vaultNoteText').value.trim();
     if(!text) return;
-    const enc = await encryptJSON(vaultKey, { type:'note', name:'Note — ' + text.slice(0,24), text, createdAt: Date.now() });
-    await idbPut(db, 'items', enc);
-    toast('Note saved, encrypted');
-    renderVaultList(db);
+    try{
+      const enc = await encryptJSON(vaultKey, { type:'note', name:'Note — ' + text.slice(0,24), text, createdAt: Date.now() });
+      await idbPut(db, 'items', enc);
+      toast('Note saved, encrypted');
+      renderVaultList(db);
+    } catch(err){
+      console.error('Vault note save failed:', err);
+      toast('Save failed: ' + err.message);
+    }
   });
 
   document.getElementById('vaultAddImageBtn').addEventListener('click', ()=>{
@@ -629,10 +634,15 @@ async function renderVaultList(db){
     if(!file) return;
     const reader = new FileReader();
     reader.onload = async ()=>{
-      const enc = await encryptJSON(vaultKey, { type:'image', name:'Screenshot — ' + file.name, dataUrl: reader.result, createdAt: Date.now() });
-      await idbPut(db, 'items', enc);
-      toast('Screenshot saved, encrypted');
-      renderVaultList(db);
+      try{
+        const enc = await encryptJSON(vaultKey, { type:'image', name:'Screenshot — ' + file.name, dataUrl: reader.result, createdAt: Date.now() });
+        await idbPut(db, 'items', enc);
+        toast('Screenshot saved, encrypted');
+        renderVaultList(db);
+      } catch(err){
+        console.error('Vault screenshot save failed:', err);
+        toast('Save failed: ' + err.message);
+      }
     };
     reader.readAsDataURL(file);
   });

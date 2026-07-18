@@ -1,6 +1,6 @@
-const CACHE_NAME = "calc-app-v1";
+const CACHE_NAME = "calc-app-v2";
 const ASSETS = [
-  "./shield-prototype.html",
+  "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
